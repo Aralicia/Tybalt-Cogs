@@ -59,7 +59,7 @@ class TybaltEmbed(commands.Cog):
                     if 'timestamp' in embedData:
                         timestamp = dateutil.parser.parse(embedData['timestamp'])
 
-                    embed = discord.Embed(title=None, description=description, url=url, colour=color, timestamp=timestamp)
+                    embed = discord.Embed(title=title, description=description, url=url, colour=color, timestamp=timestamp)
                     if 'image' in embedData and 'url' in embedData['image']:
                         embed.set_image(url=embedData['image']['url'])
                     if 'thumbnail' in embedData and 'url' in embedData['thumbnail']:

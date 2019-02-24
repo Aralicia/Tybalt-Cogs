@@ -1,6 +1,7 @@
 import discord
 import random
 from redbot.core import commands
+from redbot.core.utils.chat_formatting import pagify, box
 
 class TybaltCustomCommands(commands.Cog):
     """TybaltCustomCommands."""
@@ -8,6 +9,39 @@ class TybaltCustomCommands(commands.Cog):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
+        cc_cog = self.bot.get_cog("CustomCommands")
+        cc_list_command = commands.command('list')(self.cc_list)
+        cc_cog.cc_list = cc_list_command
+        cc_cog.customcom.remove_command('list')
+        cc_cog.customcom.add_command(cc_list_command)
+
+
+    async def cc_list(self, ctx: commands.Context):
+        """List all available custom commands.
+
+        """
+
+        cc_cog = self.bot.get_cog("CustomCommands")
+        cc_guild = cc_cog.config.guild(ctx.guild)
+        cc_dict = await cc_guild.commands()
+        
+        if not cc_dict:
+            await ctx.send(
+                _(
+                    "There are no custom commands in this server."
+                    " Use `{command}` to start adding some."
+                ).format(command="{}customcom create".format(ctx.prefix))
+            )
+            return
+
+        results = []
+        for command, body in sorted(cc_dict.items(), key=lambda t: t[0]):
+            results.append('{}{}'.format(ctx.prefix, command))
+        
+        content = "\n".join(results)
+        pages = list(pagify(content, page_length=1920))
+        for page in pages:
+            await ctx.author.send(box(page))
 
     @commands.command(pass_context=True, no_pm=True)
     async def randcom(self, ctx):
