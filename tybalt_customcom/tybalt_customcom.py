@@ -1,6 +1,8 @@
 import discord
 import random
-from redbot.core import commands
+import re
+import inspect
+from redbot.core import checks, commands
 from redbot.core.utils.chat_formatting import pagify, box
 
 class TybaltCustomCommands(commands.Cog):
@@ -10,12 +12,12 @@ class TybaltCustomCommands(commands.Cog):
         super().__init__()
         self.bot = bot
         cc_cog = self.bot.get_cog("CustomCommands")
-        cc_list_command = commands.command('list')(self.cc_list)
-        cc_cog.cc_list = cc_list_command
-        cc_cog.customcom.remove_command('list')
-        cc_cog.customcom.add_command(cc_list_command)
+        cmd_list = cc_cog.customcom.get_command('list')
+        if cmd_list is not None:
+            cmd_list.callback = self.cc_list.callback
 
-
+    @commands.command(name="customcom list")
+    @checks.bot_has_permissions(add_reactions=True)
     async def cc_list(self, ctx: commands.Context):
         """List all available custom commands.
 
@@ -62,8 +64,10 @@ class TybaltCustomCommands(commands.Cog):
 
             raw_response = '{}{} \n{}'.format(ctx.prefix, command_name, response)
 
-            fake_cc = commands.Command(ctx.invoked_with, cc_cog.cc_callback)
+
+            fake_cc = commands.Command(name=ctx.invoked_with, func=cc_cog.cc_callback)
             fake_cc.params = cc_cog.prepare_args(raw_response)
+            fake_cc.requires.ready_event.set()
             ctx.command = fake_cc
 
             await self.bot.invoke(ctx)
