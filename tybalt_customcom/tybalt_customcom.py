@@ -505,7 +505,10 @@ class CustomCommands(commands.Cog):
         else:
             author = "{} ({})".format(cmd["author"]["name"], cmd["author"]["id"])
 
-        _type = _("Random") if len(responses) > 1 else _("Normal")
+        if "kind" in cmd and cmd["kind"] == "alias":
+            _type = _("Alias")
+        else:
+            _type = _("Random") if len(responses) > 1 else _("Normal")
 
         text = _(
             "Command: {command_name}\n"
@@ -587,7 +590,6 @@ class CustomCommands(commands.Cog):
                     message=message, command=ccinfo['response']
                 )
 
-            print(ccinfo)
             # dealing with optional kind
             if "kind" in ccinfo and ccinfo['kind'] == "alias":
                 raise NotFound()
@@ -605,12 +607,10 @@ class CustomCommands(commands.Cog):
             if cooldowns:
                 self.test_cooldowns(ctx, ctx.invoked_with, cooldowns)
         except CCError:
-            returna
-
-        print(raw_response);
+            return
 
         if aliasedFrom is not None and aliasedTo is not None:
-            raw_response = "{}{} *(aliased from {}{})*\n{}".format(ctx.prefix, aliasedTo, ctx.prefix, aliasedFrom, raw_response)
+            raw_response = "{}{} *(from {}{})*\n{}".format(ctx.prefix, aliasedTo, ctx.prefix, aliasedFrom, raw_response)
 
         # wrap the command here so it won't register with the bot
         fake_cc = commands.command(name=ctx.invoked_with)(self.cc_callback)
