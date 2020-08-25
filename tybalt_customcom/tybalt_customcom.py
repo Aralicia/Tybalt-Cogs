@@ -101,7 +101,7 @@ class CommandObj:
         else:
             raise NotFound()
 
-    async def create(self, ctx: commands.Context, command: str, *, response):
+    async def create(self, ctx: commands.Context, command: str, *, response, kind=None):
         """Create a custom command"""
         # Check if this command is already registered as a customcommand
         if await self.db(ctx.guild).commands.get_raw(command, default=None):
@@ -109,6 +109,7 @@ class CommandObj:
         # test to raise
         ctx.cog.prepare_args(response if isinstance(response, str) else response[0])
         author = ctx.message.author
+        kind = ( kind if kind else "auto" )
         ccinfo = {
             "author": {"id": author.id, "name": str(author)},
             "command": command,
@@ -116,6 +117,7 @@ class CommandObj:
             "created_at": self.get_now(),
             "editors": [],
             "response": response,
+            "kind": kind
         }
         await self.db(ctx.guild).commands.set_raw(command, value=ccinfo)
 
@@ -175,6 +177,9 @@ class CommandObj:
             # editors, if the person is not yet in there
             ccinfo["editors"].append(author.id)
 
+        if not kind in ccinfo:
+            ccinfo["kind"] = "auto"
+
         ccinfo["edited_at"] = self.get_now()
 
         await self.db(ctx.guild).commands.set_raw(command, value=ccinfo)
@@ -185,7 +190,6 @@ class CommandObj:
         if not await self.db(ctx.guild).commands.get_raw(command, default=None):
             raise NotFound()
         await self.db(ctx.guild).commands.set_raw(command, value=None)
-
 
 @cog_i18n(_)
 class CustomCommands(commands.Cog):
@@ -331,6 +335,36 @@ class CustomCommands(commands.Cog):
         try:
             await self.commandobj.create(ctx=ctx, command=command, response=text)
             await ctx.send("{} Custom command \"{}\" successfully added.".format(ctx.message.author.mention, command))
+        except AlreadyExists:
+            await ctx.send(
+                _("This command already exists. Use `{command}` to edit it.").format(
+                    command=f"{ctx.clean_prefix}customcom edit"
+                )
+            )
+        except ArgParseError as e:
+            await ctx.send(e.args[0])
+
+    @cc_create.command(name="alias")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_create_alias(self, ctx, alias: str.lower, command: str.lower):
+        """Add a alias custom command.
+
+        Example:
+        - `[p]customcom create alias youralias yourcommand`
+        """
+        if any(char.isspace() for char in alias):
+            # Haha, nice try
+            await ctx.send(_("Custom command names cannot have spaces in them."))
+            return
+        if any(char.isspace() for char in command):
+            await ctx.send(_("Custom command names cannot have spaces in them."))
+            return
+        if alias in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
+            await ctx.send(_("There already exists a bot command with the same name."))
+            return
+        try:
+            await self.commandobj.create(ctx=ctx, command=alias, response=command, kind="alias")
+            await ctx.send("{} Custom alias `{}` => `{}` successfully added.".format(ctx.message.author.mention, alias, command))
         except AlreadyExists:
             await ctx.send(
                 _("This command already exists. Use `{command}` to edit it.").format(
@@ -540,9 +574,28 @@ class CustomCommands(commands.Cog):
             return
 
         try:
-            raw_response, cooldowns = await self.commandobj.get(
+            aliasedFrom = None
+            aliasedTo = None
+            ccinfo = await self.commandobj.get_full(
                 message=message, command=ctx.invoked_with
             )
+            # single-depth alias only, in order not to have to deal with alias loops
+            if "kind" in ccinfo and ccinfo['kind'] == "alias":
+                aliasedFrom = ctx.invoked_with
+                aliasedTo = ccinfo['response']
+                ccinfo = await self.commandobj.get_full(
+                    message=message, command=ccinfo['response']
+                )
+
+            print(ccinfo)
+            # dealing with optional kind
+            if "kind" in ccinfo and ccinfo['kind'] == "alias":
+                raise NotFound()
+            # elif ccinfo['kind'] and ccinfo['kind'] == "embed": # shhh, spoilers
+            else:
+                raw_response = ccinfo["response"]
+                cooldowns = ccinfo.get("cooldowns", {})
+
             if isinstance(raw_response, list):
                 raw_response = random.choice(raw_response)
             elif isinstance(raw_response, str):
@@ -552,7 +605,12 @@ class CustomCommands(commands.Cog):
             if cooldowns:
                 self.test_cooldowns(ctx, ctx.invoked_with, cooldowns)
         except CCError:
-            return
+            returna
+
+        print(raw_response);
+
+        if aliasedFrom is not None and aliasedTo is not None:
+            raw_response = "{}{} *(aliased from {}{})*\n{}".format(ctx.prefix, aliasedTo, ctx.prefix, aliasedFrom, raw_response)
 
         # wrap the command here so it won't register with the bot
         fake_cc = commands.command(name=ctx.invoked_with)(self.cc_callback)
