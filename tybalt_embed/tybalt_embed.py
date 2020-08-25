@@ -19,11 +19,65 @@ class TybaltEmbed(commands.Cog):
         Example:
         !embed https://pastebin.com/raw/1PacLKkf
        """
+        await ctx.trigger_typing()
+
+        url = " ".join(search)
+
+        message = await self.loadEmbed(url)
+
+        if message is not None:
+            if message[0] is not None:
+                if message[1] is not None:
+                    await ctx.send(message[0], embed=message[1])
+                else:
+                    await ctx.send(message[0])
+            elif message[1] is not None:
+                await ctx.send("", embed=message[1])
+            else:
+                await ctx.send("Something went wrong.")
+        else:
+            await ctx.send("Something went wrong.")
+
+    @commands.command(pass_context=True, no_pm=True)
+    @checks.admin_or_permissions(manage_roles=True)
+    async def embed_update(self, ctx, *search):
+        await ctx.trigger_typing()
+        """Update an existing message with an embed from a json url
+        Json build can be found at https://leovoel.github.io/embed-visualizer/
+
+        Example:
+        !embed_update 723275136823722065 https://pastebin.com/raw/1PacLKkf
+       """
+        search = list(search)
+        message_id = search.pop(0)
+        url = " ".join(search)
+
         try:
-            await ctx.trigger_typing()
+            message = await ctx.channel.fetch_message(message_id)
 
-            url = " ".join(search)
+            if message is not None:
+                replace = await self.loadEmbed(url)
+                if replace is not None:
+                    if replace[0] is not None:
+                        if replace[1] is not None:
+                            await message.edit(content=replace[0], embed=replace[1])
+                        else:
+                            await message.edit(content=replace[0], embed=None)
+                    elif replace[1] is not None:
+                        await message.edit(content=None, embed=replace[1])
+                    else:
+                        await ctx.send("Something went wrong.")
+                else:
+                    await ctx.send("Something went wrong.")
+            else:
+                await ctx.send("Something went wrong.")
 
+        except Exception as e:
+            print(e)
+            await ctx.send("Something went wrong.")
+
+    async def loadEmbed(self, url):
+        try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as r:
                     data = await r.text()
@@ -36,6 +90,7 @@ class TybaltEmbed(commands.Cog):
 
             if parsed is not None:
                 content = None
+                embed = None
 
                 if 'content' in parsed:
                     content = parsed['content']
@@ -98,11 +153,7 @@ class TybaltEmbed(commands.Cog):
                                 embed.add_field(name=name, value=value, inline=field['inline'])
                             else:
                                 embed.add_field(name=name, value=value)
-                    await ctx.send(content, embed=embed)
-                else:
-                    await ctx.send(content)
-
+                return (content, embed)
         except Exception as e:
             print(e)
-            await ctx.send("Something went wrong.")
-
+        return None
