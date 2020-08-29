@@ -177,7 +177,7 @@ class CommandObj:
             # editors, if the person is not yet in there
             ccinfo["editors"].append(author.id)
 
-        if not kind in ccinfo:
+        if "kind" not in ccinfo:
             ccinfo["kind"] = "auto"
 
         ccinfo["edited_at"] = self.get_now()

@@ -1,13 +1,55 @@
+import asyncio
 import discord
 import random
+import sys
 from redbot.core import commands
 
 class TybaltMegaserver(commands.Cog):
     """TybaltMegaserver."""
 
+    def __init__(self, bot):
+        self.bot = bot
+        self.roles = [
+                { 'role' : 'na', 'emoji' : '\N{REGIONAL INDICATOR SYMBOL LETTER U}\N{REGIONAL INDICATOR SYMBOL LETTER S}', 'name' : 'NA', 'description' : 'You play on the NA megaserver.'},
+                { 'role' : 'eu', 'emoji' : '\N{REGIONAL INDICATOR SYMBOL LETTER E}\N{REGIONAL INDICATOR SYMBOL LETTER U}', 'name' : 'EU', 'description' : 'You play on the EU megaserver.'},
+                { 'role' : 'f2p', 'emoji' : '\N{SQUARED FREE}', 'name' : 'F2P', 'description' : 'You play on a f2p account, without the expansions.'}
+            ]
+
+    @commands.command(pass_context=True, no_pm=True)
+    async def roles(self, ctx):
+        """Display a message on which you can mention to change your roles (In dev)
+
+        Example:
+        !roles
+        """
+        content = "> **User Roles**\n> Use the reactions below this message to gain or lose the following roles :";
+
+        for role in self.roles:
+            content = "{}\n> {} : {} - {}".format(content, role['emoji'], role['name'], role['description'])
+
+        message = await ctx.send(content);
+
+        for role in self.roles:
+            await message.add_reaction(role['emoji'])
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        member, role = await self.get_reaction_context(payload)
+        if member is not None and role is not None:
+            if role not in member.roles:
+                await member.add_roles(role)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload):
+        member, role = await self.get_reaction_context(payload)
+        if member is not None and role is not None:
+            if role in member.roles:
+                await member.remove_roles(role)
+
+
     @commands.command(pass_context=True, no_pm=True, aliases=["NA"])
     async def na(self, ctx):
-        """Join NA group/rolee
+        """Join NA group/role
 
         Example:
         !na
@@ -33,7 +75,7 @@ class TybaltMegaserver(commands.Cog):
 
     @commands.command(pass_context=True, no_pm=True, aliases=["EU"])
     async def eu(self, ctx):
-        """Join EU group/rolee
+        """Join EU group/role
 
         Example:
         !eu
@@ -86,3 +128,21 @@ class TybaltMegaserver(commands.Cog):
             if role.name.lower() == name.lower():
                 return role
 
+    async def get_reaction_context(self, payload):
+        try:
+            guild = self.bot.get_guild(payload.guild_id)
+            member = guild.get_member(payload.user_id)
+            channel = guild.get_channel(payload.channel_id)
+            emoji = payload.emoji
+
+            if not member.bot:
+                message = await channel.fetch_message(payload.message_id)
+                if message.author == guild.me:
+                    for _role in self.roles:
+                        if (emoji.name == _role['emoji']):
+                            role = self.get_role_by_name(guild, _role['role'])
+                            if role is not None:
+                                return (member, role)
+        except:
+            print("{}".format(sys.exc_info()[0]))
+        return (member, None)
