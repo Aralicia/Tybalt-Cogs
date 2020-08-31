@@ -59,7 +59,7 @@ class TybaltWiki(commands.Cog):
             msg = msg.lower();
 
             for row in results:
-                if (row[0].lower() == msg):
+                if (row[0].lower() == msg or msg == ""):
                     await ctx.send("{} : <{}>".format(row[0], row[1]))
                     return
             await ctx.send("Hmm, nothing was found for \"{}\".".format(msg))
@@ -69,8 +69,11 @@ class TybaltWiki(commands.Cog):
 
     async def query_wiki(self, keyword):
         try:
-            f = { 'search' : keyword}
-            url = "https://wiki.guildwars2.com/api.php?action=opensearch&limit=11&redirects=resolve&"+urllib.parse.urlencode(f)
+            if not keyword:
+                return [ ('Wiki', 'https://wiki.guildwars2.com/') ]
+
+            f = { 'search' : keyword }
+            url = "https://wiki.guildwars2.com/api.php?action=opensearch&limit=11&redirects=resolve&format=json&"+urllib.parse.urlencode(f)
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as r:
                     data = await r.text()
