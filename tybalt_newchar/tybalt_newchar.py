@@ -18,15 +18,15 @@ class TybaltNewchar(commands.Cog):
         # profession question
         char['bio_profession'] = ('', '')
         if char['profession'] == "Elementalist":
-            char['bio_profession'] = ("Pet", "I wear a gem of", choice(["**Water**", "**Fire**", "**Earth**", "**Air**"]))
+            char['bio_profession'] = ("Gem", "I wear a gem of", choice(["**Water**", "**Fire**", "**Earth**", "**Air**"]))
         if char['profession'] == "Engineer":
-            char['bio_profession'] = ("Pet", "My tool is", choice(["a **Universal Multitool Pack**", "**Eagle-Eye Goggles**", "a **Panscopic Monocle**"]))
+            char['bio_profession'] = ("Tool", "My tool is", choice(["a **Universal Multitool Pack**", "**Eagle-Eye Goggles**", "a **Panscopic Monocle**"]))
         if char['profession'] == "Guardian":
-            char['bio_profession'] = ("Pet", "I wear", choice(["**Conqueror's Pauldrons**", "**Fanatic's Pauldron**", "a **Visionary's Helm**"]))
+            char['bio_profession'] = ("Armor", "I wear", choice(["**Conqueror's Pauldrons**", "**Fanatic's Pauldron**", "a **Visionary's Helm**"]))
         if char['profession'] == "Mesmer":
-            char['bio_profession'] = ("Pet", "My mask is", choice(["**Harlequin's Smile**", "**Phantasm of Sorrow**", "**Fanged Dread**"]))
+            char['bio_profession'] = ("Mask", "My mask is", choice(["**Harlequin's Smile**", "**Phantasm of Sorrow**", "**Fanged Dread**"]))
         if char['profession'] == "Necromancer":
-            char['bio_profession'] = ("Pet", "I mark my face with the symbol of a", choice(["**Trickster Demon**", "**Skull**", "**Ghostly Wraith**"]))
+            char['bio_profession'] = ("Tatoo", "I mark my face with the symbol of a", choice(["**Trickster Demon**", "**Skull**", "**Ghostly Wraith**"]))
         if char['profession'] == "Ranger":
             if char['race'] == "Asura":
                 char['bio_profession'] = ("Pet", "My pet is a", choice(["**Moa**", "**Stalker**", "**Drake**"]))
@@ -39,11 +39,11 @@ class TybaltNewchar(commands.Cog):
             if char['race'] == "Sylvari":
                 char['bio_profession'] = ("Pet", "My pet is a", choice(["**Moa**", "**Stalker**", "**Fern Hound**"]))
         if char['profession'] == "Revenant":
-            char['bio_profession'] = ("Pet", "I fight with my", choice(["**Mist Scrim** blindfold", "**Veil Piercer** blindfold", "**Resplendent Curtain** blindfold"]))
+            char['bio_profession'] = ("Blindfold", "I fight with my", choice(["**Mist Scrim** blindfold", "**Veil Piercer** blindfold", "**Resplendent Curtain** blindfold"]))
         if char['profession'] == "Thief":
-            char['bio_profession'] = ("Pet", "I understand the power of", choice(["**Anonymity**", "**Determination**", "**Subterfuge**"]))
+            char['bio_profession'] = ("Mask", "I understand the power of", choice(["**Anonymity**", "**Determination**", "**Subterfuge**"]))
         if char['profession'] == "Warrior":
-            char['bio_profession'] = ("Pet", "I wear", choice(["a **Spangenhelm**", "a **Galea**", "no helm at all"]))
+            char['bio_profession'] = ("Helm", "I wear", choice(["a **Spangenhelm**", "a **Galea**", "no helm at all"]))
 
         # personality question
         char['bio_personality'] = ("I use my", choice(["**Charm** to overcome trouble", "**Dignity** to overcome trouble", "**Ferocity** to overcome trouble"]))
