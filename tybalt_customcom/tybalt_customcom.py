@@ -38,6 +38,11 @@ class OnCooldown(CCError):
     pass
 
 
+class IsAlias(CCError):
+    def __init__(self, target):
+        self.target = target
+
+
 class CommandObj:
     def __init__(self, **kwargs):
         config = kwargs.get("config")
@@ -136,6 +141,10 @@ class CommandObj:
         # Check if this command is registered
         if not ccinfo:
             raise NotFound()
+
+        if ccinfo["kind"] == "alias":
+            raise IsAlias(ccinfo["response"])
+
 
         author = ctx.message.author
 
@@ -448,6 +457,11 @@ class CustomCommands(commands.Cog):
                     command=f"{ctx.clean_prefix}customcom create"
                 )
             )
+        except IsAlias as e:
+            await ctx.send("This command cannot be edited because it is an alias. use `{command}` instead".format(
+                    command=f"{ctx.clean_prefix}customcom edit {e.target}"
+                )
+            )
         except ArgParseError as e:
             await ctx.send(e.args[0])
 
@@ -544,7 +558,9 @@ class CustomCommands(commands.Cog):
         command_name = random.choice(guild_command_names)
         command = guild_commands[command_name]
 
-        if isinstance(command['response'], list):
+        if command is None:
+            response = "This command seems to have disappeared in the Mists. Not sure it'll come back."
+        elif isinstance(command['response'], list):
             response = random.choice(command['response'])
         else:
             response = command['response']
