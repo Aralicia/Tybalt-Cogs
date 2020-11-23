@@ -39,6 +39,21 @@ class TybaltAds(commands.Cog):
             embed = discord.Embed(title=title, description=description, colour=0x990000)
             await ctx.message.channel.send("", embed=embed)
 
+    @commands.command(pass_context=True, no_pm=True)
+    @checks.has_permissions(manage_messages=True)
+    async def adsallow(self, ctx, user: discord.Member):
+        adschannels = await self.config.guild(ctx.message.guild).adschannels()
+        if ctx.message.channel.id in adschannels and user is not None:
+            user_id = str(user.id)
+            lastmessages = await self.config.channel(ctx.message.channel).lastmessages()
+            if (lastmessages is None):
+                lastmessages = {}
+            if user_id in lastmessages :
+                del lastmessages[user_id]
+                await self.config.channel(ctx.message.channel).lastmessages.set(lastmessages)
+                await ctx.message.delete()
+                await ctx.message.channel.send('*Done. User {} can now post again.*'.format(user.mention), delete_after=360)
+
     @commands.Cog.listener()
     async def on_message(self, message):
         if message.guild is not None:
