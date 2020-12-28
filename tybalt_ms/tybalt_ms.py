@@ -143,6 +143,7 @@ class TybaltMegaserver(commands.Cog):
                             role = self.get_role_by_name(guild, _role['role'])
                             if role is not None:
                                 return (member, role)
+            return (member, None)
         except:
             print("{}".format(sys.exc_info()[0]))
-        return (member, None)
+        return (None, None)
