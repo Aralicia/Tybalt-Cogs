@@ -5,8 +5,13 @@ from inspect import Parameter
 from collections import OrderedDict
 from typing import Iterable, List, Mapping, Tuple, Dict, Set
 from urllib.parse import quote_plus
+import urllib.parse
+import aiohttp
+import json
+import dateutil.parser
 
 import discord
+from discord import Embed
 from fuzzywuzzy import process
 
 from redbot.core import Config, checks, commands
@@ -39,6 +44,10 @@ class OnCooldown(CCError):
 
 
 class IsAlias(CCError):
+    def __init__(self, target):
+        self.target = target
+
+class IsRich(CCError):
     def __init__(self, target):
         self.target = target
 
@@ -142,9 +151,11 @@ class CommandObj:
         if not ccinfo:
             raise NotFound()
 
-        if ccinfo["kind"] == "alias":
+        if "kind" in ccinfo and ccinfo["kind"] == "alias":
             raise IsAlias(ccinfo["response"])
 
+        if "kind" in ccinfo and ccinfo["kind"] == "rich":
+            raise IsRich(ccinfo["response"])
 
         author = ctx.message.author
 
@@ -383,6 +394,47 @@ class CustomCommands(commands.Cog):
         except ArgParseError as e:
             await ctx.send(e.args[0])
 
+    @cc_create.command(name="rich")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_create_rich(self, ctx, command: str.lower, rich: str):
+        """Add a rich custom command
+        Rich commands are described by a json file describing the embed's structure.
+        A valid embed description can be generated using the embed Visualiser : https://leovoel.github.io/embed-visualizer/
+
+        Exmaple:
+        - `[p]customcom create rich yourcommand url-to-the-description`
+        """
+        if any(char.isspace() for char in command):
+            await ctx.send(_("Custom command names cannot have spaces in them."))
+            return
+        if command in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
+            await ctx.send(_("There already exists a bot command with the same name."))
+            return
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(rich) as r:
+                    data = await r.text()
+                    status = r.status
+            try:
+                parsed = json.loads(data)
+            except:
+                parsed = None
+
+            if parsed is not None:
+                await self.commandobj.create(ctx=ctx, command=command, response=data, kind="rich")
+                await ctx.send("{} Custom command \"{}\" successfully added.".format(ctx.message.author.mention, command))
+            else:
+                await ctx.send("Invalid embed description.")
+
+        except AlreadyExists:
+            await ctx.send(
+                _("This command already exists. Use `{command}` to edit it.").format(
+                    command=f"{ctx.clean_prefix}customcom edit"
+                )
+            )
+        except ArgParseError as e:
+            await ctx.send(e.args[0])
+
     @customcom.command(name="cooldown")
     @checks.mod_or_permissions(administrator=True)
     async def cc_cooldown(
@@ -462,6 +514,8 @@ class CustomCommands(commands.Cog):
                     command=f"{ctx.clean_prefix}customcom edit {e.target}"
                 )
             )
+        except IsRich as e:
+            await ctx.send("This command cannot be edited because it is an rich command.")
         except ArgParseError as e:
             await ctx.send(e.args[0])
 
@@ -557,9 +611,12 @@ class CustomCommands(commands.Cog):
         guild_command_names = list(guild_commands)
         command_name = random.choice(guild_command_names)
         command = guild_commands[command_name]
+        embed = None
 
         if command is None:
             response = "This command seems to have disappeared in the Mists. Not sure it'll come back."
+        elif "kind" in command and command['kind'] == "rich":
+            response, embed = self.prepare_emded(command["response"]);
         elif isinstance(command['response'], list):
             response = random.choice(command['response'])
         else:
@@ -574,7 +631,7 @@ class CustomCommands(commands.Cog):
 
         await self.bot.invoke(ctx)
         if not ctx.command_failed:
-            await self.cc_command(*ctx.args, **ctx.kwargs, raw_response=raw_response)
+            await self.cc_command(*ctx.args, **ctx.kwargs, raw_response=raw_response, embed=embed)
 
     @commands.Cog.listener()
     async def on_message_without_command(self, message):
@@ -593,6 +650,7 @@ class CustomCommands(commands.Cog):
             return
 
         try:
+            embed = None
             aliasedFrom = None
             aliasedTo = None
             ccinfo = await self.commandobj.get_full(
@@ -609,10 +667,11 @@ class CustomCommands(commands.Cog):
             # dealing with optional kind
             if "kind" in ccinfo and ccinfo['kind'] == "alias":
                 raise NotFound()
-            # elif ccinfo['kind'] and ccinfo['kind'] == "embed": # shhh, spoilers
+            elif "kind" in ccinfo and ccinfo['kind'] == "rich":
+                raw_response, embed = self.prepare_emded(ccinfo["response"]);
             else:
                 raw_response = ccinfo["response"]
-                cooldowns = ccinfo.get("cooldowns", {})
+            cooldowns = ccinfo.get("cooldowns", {})
 
             if isinstance(raw_response, list):
                 raw_response = random.choice(raw_response)
@@ -636,7 +695,7 @@ class CustomCommands(commands.Cog):
 
         await self.bot.invoke(ctx)
         if not ctx.command_failed:
-            await self.cc_command(*ctx.args, **ctx.kwargs, raw_response=raw_response)
+            await self.cc_command(*ctx.args, **ctx.kwargs, raw_response=raw_response, embed=embed)
 
     async def cc_callback(self, *args, **kwargs) -> None:
         """
@@ -647,7 +706,7 @@ class CustomCommands(commands.Cog):
         # fake command to take advantage of discord.py's parsing and events
         pass
 
-    async def cc_command(self, ctx, *cc_args, raw_response, **cc_kwargs) -> None:
+    async def cc_command(self, ctx, *cc_args, raw_response, embed, **cc_kwargs) -> None:
         cc_args = (*cc_args, *cc_kwargs.values())
         results = re.findall(r"{([^}]+)\}", raw_response)
         for result in results:
@@ -660,7 +719,7 @@ class CustomCommands(commands.Cog):
                 index = int(result[1]) - low
                 arg = self.transform_arg(result[0], result[2], cc_args[index])
                 raw_response = raw_response.replace("{" + result[0] + "}", arg)
-        await ctx.send(raw_response)
+        await ctx.send(raw_response, embed=embed)
 
     @staticmethod
     def prepare_args(raw_response) -> Mapping[str, Parameter]:
@@ -840,3 +899,72 @@ class CustomCommands(commands.Cog):
             results.append((f"{ctx.clean_prefix}{command}", result))
         return results
 
+    @staticmethod
+    def prepare_emded(description) -> Tuple[str, discord.Embed] :
+        content = ""
+        embed = None
+        parsed = json.loads(description)
+
+        if 'content' in parsed:
+            content = parsed['content']
+
+        if 'embed' in parsed:
+            embedData = parsed['embed']
+            title = None
+            description = None
+            url = None
+            color = 0x000000
+            timestamp = discord.Embed.Empty
+
+            if 'title' in embedData:
+                title = embedData['title']
+            if 'description' in embedData:
+                description = embedData['description']
+            if 'url' in embedData:
+                url = embedData['url']
+            if 'color' in embedData:
+                color = embedData['color']
+            if 'timestamp' in embedData:
+                timestamp = dateutil.parser.parse(embedData['timestamp'])
+
+            embed = discord.Embed(title=title, description=description, url=url, colour=color, timestamp=timestamp)
+            if 'image' in embedData and 'url' in embedData['image']:
+                embed.set_image(url=embedData['image']['url'])
+            if 'thumbnail' in embedData and 'url' in embedData['thumbnail']:
+                embed.set_thumbnail(url=embedData['thumbnail']['url'])
+
+            if 'author' in embedData:
+                author_name = None
+                author_url = Embed.Empty
+                author_icon = Embed.Empty
+                if 'name' in embedData['author']:
+                    author_name = embedData['author']['name']
+                if 'url' in embedData['author']:
+                    author_url = embedData['author']['url']
+                if 'icon_url' in embedData['author']:
+                    author_icon = embedData['author']['icon_url']
+                embed.set_author(name=author_name, url=author_url, icon_url=author_icon)
+
+            if 'footer' in embedData:
+                footer_text = None
+                footer_icon = None
+                if 'text' in embedData['footer']:
+                    footer_text = embedData['footer']['text']
+                if 'icon_url' in embedData['footer']:
+                    footer_icon = embedData['footer']['icon_url']
+                embed.set_footer(text=footer_text, icon_url=footer_icon)
+
+            if 'fields' in embedData:
+                for field in embedData['fields']:
+                    name = None
+                    value = None
+                    if 'name' in field:
+                        name = field['name']
+                    if 'value' in field:
+                        value = field['value']
+                    if 'inline' in field:
+                        embed.add_field(name=name, value=value, inline=field['inline'])
+                    else:
+                        embed.add_field(name=name, value=value)
+
+        return (content, embed)
