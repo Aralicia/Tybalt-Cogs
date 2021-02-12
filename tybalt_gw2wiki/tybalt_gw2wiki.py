@@ -25,7 +25,7 @@ class TybaltWiki(commands.Cog):
 
             if results:
                 if len(results) == 1:
-                    await ctx.send("{} : <{}>".format(results[0][0], results[0][1]))
+                    await ctx.send("{} : <{}>".format(results[0][0], results[0][1]),  reference=ctx.message)
                 else:
                     res = "Ok, I have found these results for \"{}\":".format(msg)
                     for i, row in enumerate(results):
@@ -35,14 +35,14 @@ class TybaltWiki(commands.Cog):
                     if len(results) > 10:#if it found more than 10 results, show a notice plus a link to the full search page
                         link = "http://wiki.guildwars2.com/index.php?title=Special%3ASearch&fulltext=1&"+urllib.parse.urlencode({'search' : msg}) #the "fulltext" param is to avoid a redirect in case there is a page matching exactly the search terms
                         res = "{}\n\nMore than 10 results were found and these are just the first 10.\nTry to narrow your search terms to be more specific or check the full results at <{}>.".format(res,link)
-                    await ctx.send("{}".format(res))
+                    await ctx.send("{}".format(res),  reference=ctx.message)
             else:
-                await ctx.send("Hmm, nothing was found for \"{}\".".format(msg))
+                await ctx.send("Hmm, nothing was found for \"{}\".".format(msg), reference=ctx.message)
 
         except Exception as e:
             print(e)
             traceback.print_exc()
-            await ctx.send("Something went wrong.")
+            await ctx.send("Something went wrong.", reference=ctx.message)
 
     @commands.command(pass_context=True, no_pm=True)
     async def wikus(self, ctx, *search):
@@ -60,12 +60,12 @@ class TybaltWiki(commands.Cog):
 
             for row in results:
                 if (row[0].lower() == msg or msg == ""):
-                    await ctx.send("{} : <{}>".format(row[0], row[1]))
+                    await ctx.send("{} : <{}>".format(row[0], row[1]), reference=ctx.message)
                     return
-            await ctx.send("Hmm, nothing was found for \"{}\".".format(msg))
+            await ctx.send("Hmm, nothing was found for \"{}\".".format(msg), reference=ctx.message)
         except Exception as e:
             print(e)
-            await ctx.send("Something went wrong.")
+            await ctx.send("Something went wrong.", reference=ctx.message)
 
     async def query_wiki(self, keyword):
         try:
@@ -81,7 +81,6 @@ class TybaltWiki(commands.Cog):
             
             parsed = json.loads(data)
         except:
-            print("error")
             parsed = json.loads('{}')
         
         results = []

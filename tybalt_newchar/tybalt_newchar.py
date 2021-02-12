@@ -168,7 +168,7 @@ class TybaltNewchar(commands.Cog):
             "Maybe this one ? Not sure. You're a bit hard to grasp.",
         ])
 
-        await ctx.send(response, embed=embed)
+        await ctx.send(response, embed=embed, reference=ctx.message)
         #try:
         #    await ctx.trigger_typing()
 

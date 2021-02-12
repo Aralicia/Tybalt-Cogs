@@ -19,5 +19,5 @@ class TybaltMentions(commands.Cog):
         if len(message.mentions) == 1 and message.mentions[0].id == self.bot.user.id :
             quotes = await self.config.quotes()
             quote = random.choice(quotes)
-            await message.channel.send(quote)
+            await message.channel.send(quote, reference=message)
 

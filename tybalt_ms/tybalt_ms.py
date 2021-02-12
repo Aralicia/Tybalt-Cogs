@@ -27,7 +27,7 @@ class TybaltMegaserver(commands.Cog):
         for role in self.roles:
             content = "{}\n> {} : {} - {}".format(content, role['emoji'], role['name'], role['description'])
 
-        message = await ctx.send(content);
+        message = await ctx.send(content, reference=ctx.message);
 
         for role in self.roles:
             await message.add_reaction(role['emoji'])
@@ -59,19 +59,19 @@ class TybaltMegaserver(commands.Cog):
         try:
             if role_na not in author.roles:
                 await author.add_roles(role_na)
-                await ctx.send("Done ! You are now a NA player.")
+                await ctx.send("Done ! You are now a NA player.", reference=ctx.message)
             else:
                 await author.remove_roles(role_na)
-                await ctx.send("Well, you **were** a NA player.")
+                await ctx.send("Well, you **were** a NA player.", reference=ctx.message)
                 #if (random.randint(0, 9) == 0):
                 #    await ctx.send("Cogs and gears, can't people read ? You are already NA, so you are protected from the purge.")
                 #else:
                 #    await ctx.send("Role Removal has been temporarily disabled. You are already protected from the Purge.")
         except discord.Forbidden:
-            await ctx.send("I need permissions to edit roles first.")
+            await ctx.send("I need permissions to edit roles first.", reference=ctx.message)
         except Exception as e:
             print(e)
-            await ctx.send("Something went wrong.")
+            await ctx.send("Something went wrong.", reference=ctx.message)
 
     @commands.command(pass_context=True, no_pm=True, aliases=["EU"])
     async def eu(self, ctx):
@@ -85,19 +85,19 @@ class TybaltMegaserver(commands.Cog):
         try:
             if role_eu not in author.roles:
                 await author.add_roles(role_eu)
-                await ctx.send("Done ! You are now a EU player.")
+                await ctx.send("Done ! You are now a EU player.", reference=ctx.message)
             else:
                 await author.remove_roles(role_eu)
-                await ctx.send("Well, you **were** a EU player.")
+                await ctx.send("Well, you **were** a EU player.", reference=ctx.message)
                 #if (random.randint(0, 9) == 0):
                 #    await ctx.send("Cogs and gears, can't people read ? You are already EU, so you are protected from the purge.")
                 #else:
                 #    await ctx.send("Role Removal has been temporarily disabled. You are already protected from the Purge")
         except discord.Forbidden:
-            await ctx.send("I need permissions to edit roles first.")
+            await ctx.send("I need permissions to edit roles first.", reference=ctx.message)
         except Exception as e:
             print(e)
-            await ctx.send("Something went wrong.")
+            await ctx.send("Something went wrong.", reference=ctx.message)
 
     @commands.command(pass_context=True, no_pm=True, aliases=["F2P"])
     async def f2p(self, ctx):
@@ -111,15 +111,15 @@ class TybaltMegaserver(commands.Cog):
         try:
             if role_f2p not in author.roles:
                 await author.add_roles(role_f2p)
-                await ctx.send("Done ! You are now a F2P player.")
+                await ctx.send("Done ! You are now a F2P player.", reference=ctx.message)
             else:
                 await author.remove_roles(role_f2p)
-                await ctx.send("Congratulations, you are no longer a F2P player.")
+                await ctx.send("Congratulations, you are no longer a F2P player.", reference=ctx.message)
         except discord.Forbidden:
-            await ctx.send("I need permissions to edit roles first.")
+            await ctx.send("I need permissions to edit roles first.", reference=ctx.message)
         except Exception as e:
             print(e)
-            await ctx.send("Something went wrong.")
+            await ctx.send("Something went wrong.", reference=ctx.message)
 
 
     def get_role_by_name(self, guild, name):
