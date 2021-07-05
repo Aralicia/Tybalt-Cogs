@@ -9,12 +9,18 @@ import urllib.parse
 import aiohttp
 import json
 import dateutil.parser
+import uuid
+import base64
+import os
 
 import discord
 from discord import Embed
+from discord.ext import tasks
 from fuzzywuzzy import process
 
 from redbot.core import Config, checks, commands
+from redbot.core.commands.requires import PrivilegeLevel
+from redbot.core.data_manager import cog_data_path
 from redbot.core.i18n import Translator, cog_i18n
 from redbot.core.utils import menus
 from redbot.core.utils.chat_formatting import box, pagify, escape, humanize_list
@@ -40,6 +46,10 @@ class NotFound(CCError):
 
 
 class OnCooldown(CCError):
+    pass
+
+
+class Forbidden(CCError):
     pass
 
 
@@ -131,7 +141,8 @@ class CommandObj:
             "created_at": self.get_now(),
             "editors": [],
             "response": response,
-            "kind": kind
+            "kind": kind,
+            "categories": []
         }
         await self.db(ctx.guild).commands.set_raw(command, value=ccinfo)
 
@@ -150,6 +161,9 @@ class CommandObj:
         # Check if this command is registered
         if not ccinfo:
             raise NotFound()
+
+        if not await self.can_edit(ctx, ccinfo):
+            raise Forbidden()
 
         if "kind" in ccinfo and ccinfo["kind"] == "alias":
             raise IsAlias(ccinfo["response"])
@@ -204,12 +218,43 @@ class CommandObj:
 
         await self.db(ctx.guild).commands.set_raw(command, value=ccinfo)
 
+    async def raw_edit(self, command, ccinfo, ctx):
+        await self.db(ctx.guild).commands.set_raw(command, value=ccinfo)
+
     async def delete(self, ctx: commands.Context, command: str):
         """Delete an already exisiting custom command"""
         # Check if this command is registered
-        if not await self.db(ctx.guild).commands.get_raw(command, default=None):
+        ccinfo = await self.db(ctx.guild).commands.get_raw(command, default=None)
+
+        # Check if this command is registered
+        if not ccinfo:
             raise NotFound()
+
+        if not await self.can_edit(ctx, ccinfo):
+            raise Forbidden()
+
         await self.db(ctx.guild).commands.set_raw(command, value=None)
+
+    async def can_edit(self, ctx, ccinfo):
+        if "categories" in ccinfo:
+            categories = await self.db(ctx.guild).categories()
+            roles = list(map(lambda r: r.id, ctx.message.author.roles))
+
+            if await PrivilegeLevel.from_ctx(ctx) > PrivilegeLevel.NONE:
+                return True
+
+            if len(ccinfo["categories"]) > 0:
+                for cat in ccinfo["categories"]:
+                    if cat in categories:
+                        if "protected" in categories[cat] and categories[cat]["protected"] is not None:
+                            if len(categories[cat]["protected"]) > 0:
+                                allowed = False
+                                for role in categories[cat]["protected"]:
+                                    if role in roles:
+                                        allowed = True
+                                if not allowed:
+                                    return False
+        return True
 
 @cog_i18n(_)
 class CustomCommands(commands.Cog):
@@ -220,7 +265,7 @@ class CustomCommands(commands.Cog):
         self.bot = bot
         self.key = 414589031223512
         self.config = Config.get_conf(self, self.key)
-        self.config.register_guild(commands={})
+        self.config.register_guild(commands={},categories={})
         self.commandobj = CommandObj(config=self.config, bot=self.bot)
         self.cooldowns = {}
 
@@ -350,16 +395,17 @@ class CustomCommands(commands.Cog):
             await ctx.send(_("Custom command names cannot have spaces in them."))
             return
         if command in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
-            await ctx.send(_("There already exists a bot command with the same name."))
+            await ctx.send(_("There already exists a bot command with the same name."), reference=ctx.message)
             return
         try:
             await self.commandobj.create(ctx=ctx, command=command, response=text)
-            await ctx.send("{} Custom command \"{}\" successfully added.".format(ctx.message.author.mention, command))
+            await ctx.send("{} Custom command \"{}\" successfully added.".format(ctx.message.author.mention, command), reference=ctx.message)
         except AlreadyExists:
             await ctx.send(
                 _("This command already exists. Use `{command}` to edit it.").format(
                     command=f"{ctx.clean_prefix}customcom edit"
-                )
+                ),
+                reference=ctx.message
             )
         except ArgParseError as e:
             await ctx.send(e.args[0])
@@ -380,16 +426,17 @@ class CustomCommands(commands.Cog):
             await ctx.send(_("Custom command names cannot have spaces in them."))
             return
         if alias in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
-            await ctx.send(_("There already exists a bot command with the same name."))
+            await ctx.send(_("There already exists a bot command with the same name."), reference=ctx.message)
             return
         try:
             await self.commandobj.create(ctx=ctx, command=alias, response=command, kind="alias")
-            await ctx.send("{} Custom alias `{}` => `{}` successfully added.".format(ctx.message.author.mention, alias, command))
+            await ctx.send("{} Custom alias `{}` => `{}` successfully added.".format(ctx.message.author.mention, alias, command), reference=ctx.message)
         except AlreadyExists:
             await ctx.send(
                 _("This command already exists. Use `{command}` to edit it.").format(
                     command=f"{ctx.clean_prefix}customcom edit"
-                )
+                ),
+                reference=ctx.message
             )
         except ArgParseError as e:
             await ctx.send(e.args[0])
@@ -408,7 +455,7 @@ class CustomCommands(commands.Cog):
             await ctx.send(_("Custom command names cannot have spaces in them."))
             return
         if command in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
-            await ctx.send(_("There already exists a bot command with the same name."))
+            await ctx.send(_("There already exists a bot command with the same name."), reference=ctx.message)
             return
         try:
             async with aiohttp.ClientSession() as session:
@@ -422,15 +469,16 @@ class CustomCommands(commands.Cog):
 
             if parsed is not None:
                 await self.commandobj.create(ctx=ctx, command=command, response=data, kind="rich")
-                await ctx.send("{} Custom command \"{}\" successfully added.".format(ctx.message.author.mention, command))
+                await ctx.send("{} Custom command \"{}\" successfully added.".format(ctx.message.author.mention, command), reference=ctx.message)
             else:
-                await ctx.send("Invalid embed description.")
+                await ctx.send("Invalid embed description.", reference=ctx.message)
 
         except AlreadyExists:
             await ctx.send(
                 _("This command already exists. Use `{command}` to edit it.").format(
                     command=f"{ctx.clean_prefix}customcom edit"
-                )
+                ),
+                reference=ctx.message
             )
         except ArgParseError as e:
             await ctx.send(e.args[0])
@@ -488,9 +536,11 @@ class CustomCommands(commands.Cog):
         """
         try:
             await self.commandobj.delete(ctx=ctx, command=command)
-            await ctx.send("{} Custom command \"{}\" successfully deleted.".format(ctx.message.author.mention, command))
+            await ctx.send("{} Custom command \"{}\" successfully deleted.".format(ctx.message.author.mention, command), reference=ctx.message)
         except NotFound:
             await ctx.send(_("That command doesn't exist."))
+        except Forbidden:
+            await ctx.send("You do not have the permissions to delete this command.")
 
     @customcom.command(name="edit")
     @checks.mod_or_permissions(administrator=True)
@@ -502,20 +552,25 @@ class CustomCommands(commands.Cog):
         """
         try:
             await self.commandobj.edit(ctx=ctx, command=command, response=text)
-            await ctx.send("{} Custom command \"{}\" successfully edited.".format(ctx.message.author.mention, command))
+            await ctx.send("{} Custom command \"{}\" successfully edited.".format(ctx.message.author.mention, command), reference=ctx.message)
         except NotFound:
             await ctx.send(
                 _("That command doesn't exist. Use `{command}` to add it.").format(
                     command=f"{ctx.clean_prefix}customcom create"
-                )
+                ),
+                reference=ctx.message
             )
         except IsAlias as e:
             await ctx.send("This command cannot be edited because it is an alias. use `{command}` instead".format(
                     command=f"{ctx.clean_prefix}customcom edit {e.target}"
-                )
+                ),
+                reference=ctx.message
             )
         except IsRich as e:
-            await ctx.send("This command cannot be edited because it is an rich command.")
+            #await ctx.send("This command cannot be edited because it is an rich command.", reference=ctx.message)
+            await ctx.send("You do not have the permissions to edit this command.")
+        except Forbidden:
+            await ctx.send("You do not have the permissions to edit this command.")
         except ArgParseError as e:
             await ctx.send(e.args[0])
 
@@ -600,7 +655,7 @@ class CustomCommands(commands.Cog):
         text += "\n".join(responses)
 
         for p in pagify(text):
-            await ctx.send(box(p, lang="yaml"))
+            await ctx.send(box(p, lang="yaml"), reference=ctx.message)
 
     @commands.command(pass_context=True, no_pm=True)
     async def randcom(self, ctx):
@@ -633,6 +688,92 @@ class CustomCommands(commands.Cog):
         if not ctx.command_failed:
             await self.cc_command(*ctx.args, **ctx.kwargs, raw_response=raw_response, embed=embed)
 
+    @customcom.command(name="rich")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_rich(self, ctx, command: str.lower):
+        inner_data = None
+        try:
+            inner_data = await self.commandobj.get_full(ctx.message, command_name)
+        except NotFound:
+            pass
+
+    @customcom.group(name="category", aliases=["cat"], invoke_without_command=True)
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_category(self, ctx: commands.Context, *, text: str):
+        pass
+
+    @cc_category.command(name="create")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_category_create(self, ctx, category: str.lower):
+        categories = await self.config.guild(ctx.guild).categories()
+        if category in categories:
+            return await ctx.send("This category already exist.")
+        await self.config.guild(ctx.guild).categories.set_raw(category, value={"name":category, "protected":None})
+        await ctx.send("Category {} created.".format(category), reference=ctx.message)
+
+    @cc_category.command(name="delete")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_category_delete(self, ctx, category: str.lower):
+        categories = await self.config.guild(ctx.guild).categories()
+        if category not in categories:
+            return await ctx.send("This category doesn't exist.")
+        await self.config.guild(ctx.guild).categories.clear_raw(category)
+        # TODO : run through the command list for deletion ?
+        await ctx.send("Category {} deleted.".format(category), reference=ctx.message)
+
+    @cc_category.command(name="add")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_category_add(self, ctx, category: str.lower, command: str.lower):
+        categories = await self.config.guild(ctx.guild).categories()
+        if category not in categories:
+            return await ctx.send("This category doesn't exist.")
+        commands = await self.config.guild(ctx.guild).commands()
+        if command not in commands:
+            return await ctx.send("This command doesn't exist.")
+        cc = commands[command]
+        if "categories" not in cc:
+            cc["categories"] = [];
+        if category in cc["categories"]:
+            return await ctx.send("This command is already in the category.")
+        cc["categories"].append(category)
+        await self.config.guild(ctx.guild).commands.set_raw(command, value=cc)
+        await ctx.send("Command !{} added to the {} category.".format(command, category))
+
+    @cc_category.command(name="remove")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_category_remove(self, ctx, category: str.lower, command: str.lower):
+        categories = await self.config.guild(ctx.guild).categories()
+        if category not in categories:
+            return await ctx.send("This category doesn't exist.")
+        commands = await self.config.guild(ctx.guild).commands()
+        if command not in commands:
+            return await ctx.send("This command doesn't exist.")
+        cc = commands[command]
+        if "categories" not in cc:
+            cc["categories"] = [];
+        if category not in cc["categories"]:
+            return await ctx.send("This command is not in the category.")
+        cc["categories"].remove(category)
+        await self.config.guild(ctx.guild).commands.set_raw(command, value=cc)
+        await ctx.send("Command !{} removed from the {} category.".format(command, category))
+
+    @cc_category.command(name="protect")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_category_protect(self, ctx, category: str.lower):
+        categories = await self.config.guild(ctx.guild).categories()
+        if category not in categories:
+            return await ctx.send("This category doesn't exist.")
+        roles = ctx.message.role_mentions
+        cc = categories[category]
+        if len(roles) == 0:
+            cc['protected'] = None
+            await self.config.guild(ctx.guild).categories.set_raw(category, value=cc)
+            await ctx.send("Category {} is now free for edition.".format(category))
+        else:
+            cc['protected'] = list(map(lambda r: r.id, roles))
+            await self.config.guild(ctx.guild).categories.set_raw(category, value=cc)
+            await ctx.send("Category {} is now protected from edition with roles {}.".format(category, ', '.join(map(lambda r: r.name, roles))))
+        
     @commands.Cog.listener()
     async def on_message_without_command(self, message):
         is_private = isinstance(message.channel, discord.abc.PrivateChannel)
@@ -719,7 +860,7 @@ class CustomCommands(commands.Cog):
                 index = int(result[1]) - low
                 arg = self.transform_arg(result[0], result[2], cc_args[index])
                 raw_response = raw_response.replace("{" + result[0] + "}", arg)
-        await ctx.send(raw_response, embed=embed)
+        await ctx.send(raw_response, embed=embed, reference=ctx.message)
 
     @staticmethod
     def prepare_args(raw_response) -> Mapping[str, Parameter]:
