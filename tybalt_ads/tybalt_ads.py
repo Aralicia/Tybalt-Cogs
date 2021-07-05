@@ -1,3 +1,4 @@
+import re
 import discord
 from redbot.core import checks, commands
 from redbot.core import Config
@@ -58,22 +59,48 @@ class TybaltAds(commands.Cog):
     async def on_message(self, message):
         if message.guild is not None:
             adschannels = await self.config.guild(message.guild).adschannels()
-            if message.channel.id in adschannels and message.author.bot is False:
-                author = message.author
-                author_id = str(author.id)
-                lastmessages = await self.config.channel(message.channel).lastmessages()
-                if (lastmessages is None):
-                    lastmessages = {}
-                created_at = message.created_at.timestamp()
-                if author_id in lastmessages :
-                    if (created_at - lastmessages[author_id]) > 604800: # 7 days
-                        lastmessages[author_id] = created_at
-                        await self.config.channel(message.channel).lastmessages.set(lastmessages)
-                    else:
-                        if message.channel.permissions_for(author).manage_messages == False :
-                            await message.delete()
-                            await message.channel.send('*Message deleted. You have already posted a message in the last 7 days.*', delete_after=15)
-                else:
-                    lastmessages[author_id] = created_at
-                    await self.config.channel(message.channel).lastmessages.set(lastmessages)
+            ok = (message.channel.id in adschannels and message.author.bot is False)
+            if ok:
+                ok = await self.verify_message_rules(message)
+            if ok:
+                ok = await self.verify_post_rules(message)
 
+    async def verify_message_rules(self, message):
+        message_content = message.content
+        rules = ""
+        lines_pattern = r'(\r\s*\r|\n\s*\n|\r\n\s*\r\n)'
+        #print('verify_message_rules');
+        #print(message.author);
+        #print(len(re.findall(lines_pattern, message_content)))
+
+        if len(re.findall(lines_pattern, message_content)) > 5:
+            rules = "{}\n- {}".format(rules, "No more than five empty lines")
+        if len(rules) > 0:
+            await self.remove(message, '*Message deleted. It did not respect the following rules:*{}'.format(rules))
+            return False
+        return True
+
+
+    async def verify_post_rules(self, message):
+        author = message.author
+        author_id = str(author.id)
+        lastmessages = await self.config.channel(message.channel).lastmessages()
+        if (lastmessages is None):
+            lastmessages = {}
+        created_at = message.created_at.timestamp()
+        if author_id in lastmessages :
+            if (created_at - lastmessages[author_id]) > 590400: # 6 days, 20 hours ; was 604800: # 7 days
+                lastmessages[author_id] = created_at
+                await self.config.channel(message.channel).lastmessages.set(lastmessages)
+            else:
+                await self.remove(message, '*Message deleted. You have already posted a message in the last 7 days.*')
+                return False
+        else:
+            lastmessages[author_id] = created_at
+            await self.config.channel(message.channel).lastmessages.set(lastmessages)
+        return True
+
+    async def remove(self, message, reason):
+        if message.channel.permissions_for(message.author).manage_messages == False :
+            await message.delete()
+            await message.channel.send(reason, delete_after=15)
