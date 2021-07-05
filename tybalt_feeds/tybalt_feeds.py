@@ -196,8 +196,8 @@ class TybaltFeeds(commands.Cog):
 
     def get_news_embed(self, config, feed, entry):
         description = entry.summary
-        if ('content' in entry and content.entry[0]):
-            description =  content.entry[0]
+        if ('content' in entry and entry.content[0]):
+            description =  entry.content[0].value
         if len(description) > 1500:
             description = "{}...".format(description[:1500])
         description = re.sub(r'\n+', r'\n', description)
