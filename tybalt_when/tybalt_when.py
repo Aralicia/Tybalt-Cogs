@@ -1,6 +1,7 @@
 import discord
 from redbot.core import commands
 from datetime import datetime
+from dateutil import parser
 import urllib.parse
 import aiohttp
 import json
@@ -27,33 +28,41 @@ class TybaltWhen(commands.Cog):
         except:
             parsed = json.loads('{}')
 
-        print(parsed)
         if 'when' in parsed and 'confirmed' in parsed:
             message = ""
-            when = parsed['when'][:-6]
-            date = datetime.strptime(when, '%Y-%m-%dT%H:%M:%S')
-            now =  datetime.now()
-            delta = date - datetime.now()
+            when = parsed['when']
+            date = parser.parse(when)
 
-            if (date < now):
-                if delta.days > -2 and delta.days < 2:
-                    message = "very soon !"
-                else:
-                    message = "in the past !"
-            else:
-                if delta.days == 0:
-                    if (delta.seconds < 3*60*60):
-                        message = "soon !"
-                    else:
-                        message = "today !"
-                elif delta.days == 1:
-                    message = "tomorrow !"
-                else:
-                    message = "in {} days ({})".format(delta.days, date.strftime("%B %d, %Y"))
+            # New method (uses discord time codes)
+            ts = int(datetime.timestamp(date))
             if parsed['confirmed']:
-                message = "The next update will be {}".format(message)
+                message = "The next update will be <t:{:d}:R>.".format(ts)
             else:
-                message = "The next update should be {}".format(message)
+                message = "The next update should be <t:{:d}:R>".format(ts)
+
+            # Old method
+            # now =  datetime.now()
+            # delta = date - datetime.now()
+            #
+            #if (date < now):
+            #    if delta.days > -2 and delta.days < 2:
+            #        message = "very soon !"
+            #    else:
+            #        message = "in the past !"
+            #else:
+            #    if delta.days == 0:
+            #        if (delta.seconds < 3*60*60):
+            #            message = "soon !"
+            #        else:
+            #            message = "today !"
+            #    elif delta.days == 1:
+            #        message = "tomorrow !"
+            #    else:
+            #        message = "in {} days ({})".format(delta.days, date.strftime("%B %d, %Y"))
+            #if parsed['confirmed']:
+            #    message = "The next update will be {}".format(message)
+            #else:
+            #    message = "The next update should be {}".format(message)
             await ctx.send(message, reference=ctx.message)
         else:
             await ctx.send('Sorry, I have no idea.', reference=ctx.message)
