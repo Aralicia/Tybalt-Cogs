@@ -67,3 +67,35 @@ class TybaltWhen(commands.Cog):
         else:
             await ctx.send('Sorry, I have no idea.', reference=ctx.message)
 
+
+    @commands.command(pass_context=True, no_pm=True)
+    async def eod(self, ctx, *filters):
+        """Gives a timer until EoD release
+        *Uses that_shaman's timer*
+
+        Example:
+        !when
+        """
+
+        try:
+            url = "https://www.thatshaman.com/tools/eod/?format=json"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as r:
+                    data = await r.text()
+                    status = r.status
+            parsed = json.loads(data)
+        except:
+            parsed = json.loads('{}')
+
+        if 'when' in parsed:
+            message = ""
+            when = parsed['when']
+            date = parser.parse(when)
+
+            ts = int(datetime.timestamp(date))
+            message = "End of Dragons will release <t:{:d}:R> (<t:{:d}:D>).".format(ts, ts)
+
+            await ctx.send(message, reference=ctx.message)
+        else:
+            await ctx.send('Sorry, I have no idea.', reference=ctx.message)
+
