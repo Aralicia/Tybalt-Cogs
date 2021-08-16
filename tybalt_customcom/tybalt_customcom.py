@@ -630,16 +630,25 @@ class CustomCommands(commands.Cog):
 
         if "kind" in cmd and cmd["kind"] == "alias":
             _type = _("Alias")
+        elif "kind" in cmd and cmd["kind"] == "rich":
+            _type = _("Embed")
         else:
             _type = _("Random") if len(responses) > 1 else _("Normal")
+
+        if "categories" in cmd and isinstance(cmd["categories"], list):
+            _categories = cmd["categories"]
+        else:
+            _categories = []
 
         text = _(
             "Command: {command_name}\n"
             "Author: {author}\n"
             "Created: {created_at}\n"
             "Type: {type}\n"
+            "Categories: {categories}\n"
         ).format(
-            command_name=command_name, author=author, created_at=cmd["created_at"], type=_type
+            command_name=command_name, author=author, created_at=cmd["created_at"],
+            type=_type, categories=", ".join(_categories)
         )
 
         cooldowns = cmd["cooldowns"]
@@ -658,11 +667,16 @@ class CustomCommands(commands.Cog):
             await ctx.send(box(p, lang="yaml"), reference=ctx.message)
 
     @commands.command(pass_context=True, no_pm=True)
-    async def randcom(self, ctx):
+    async def randcom(self, ctx, *, category: str = None):
         """execute a random custom command"""
 
         guild_config = self.config.guild(ctx.guild)
         guild_commands = await guild_config.commands()
+        if category is not None:
+            guild_commands = {key:value for (key,value) in guild_commands.items() if value is not None and 'categories' in value and value['categories'] is not None and category in value['categories']}
+
+        if len(guild_commands) == 0:
+            return
         guild_command_names = list(guild_commands)
         command_name = random.choice(guild_command_names)
         command = guild_commands[command_name]
@@ -773,6 +787,18 @@ class CustomCommands(commands.Cog):
             cc['protected'] = list(map(lambda r: r.id, roles))
             await self.config.guild(ctx.guild).categories.set_raw(category, value=cc)
             await ctx.send("Category {} is now protected from edition with roles {}.".format(category, ', '.join(map(lambda r: r.name, roles))))
+
+    @cc_category.command(name="list")
+    @checks.mod_or_permissions(administrator=True)
+    async def cc_category_protect(self, ctx, *, category: str.lower = None):
+        categories = list(await self.config.guild(ctx.guild).categories())
+        if (category is not None and category in categories):
+            commands = await self.config.guild(ctx.guild).commands()
+            commands = (("!"+key) for (key,value) in commands.items() if 'categories' in value and value['categories'] is not None and category in value['categories'])
+
+            await ctx.send("Commands in Category {} :\n{}".format(category, ", ".join(commands)))
+        else:
+            await ctx.send("Categories :\n{}".format("\n".join(categories)))
         
     @commands.Cog.listener()
     async def on_message_without_command(self, message):
@@ -810,8 +836,10 @@ class CustomCommands(commands.Cog):
                 raise NotFound()
             elif "kind" in ccinfo and ccinfo['kind'] == "rich":
                 raw_response, embed = self.prepare_emded(ccinfo["response"]);
-            else:
+            elif "response" in ccinfo:
                 raw_response = ccinfo["response"]
+            else:
+                raw_response = ""
             cooldowns = ccinfo.get("cooldowns", {})
 
             if isinstance(raw_response, list):
@@ -860,6 +888,7 @@ class CustomCommands(commands.Cog):
                 index = int(result[1]) - low
                 arg = self.transform_arg(result[0], result[2], cc_args[index])
                 raw_response = raw_response.replace("{" + result[0] + "}", arg)
+        print(raw_response)
         await ctx.send(raw_response, embed=embed, reference=ctx.message)
 
     @staticmethod
