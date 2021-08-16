@@ -76,7 +76,7 @@ class GW2Embed:
             description += "\r\n\r\n"
         #description += "```json\r\n"+str(data)+"```"
 
-
+        print(description)
         em = discord.Embed(title=title, description=description, colour=border_color)
         em.set_thumbnail(url=data['icon'])
         em.set_footer(text="Item ID: {}".format(api_id))
@@ -125,6 +125,23 @@ class GW2Embed:
         em.add_field(name='Chat Code', value=data['chat_link'], inline=False)
 
         return em
+
+    async def skin(self, api_id, extras = None, emojis = []):
+        gw2api = self.bot.get_cog("TybaltGW2API")
+        data = await gw2api.call('{}/{}'.format('skins', api_id))
+        if 'text' in data and data['text'] == 'no such id':
+            return await self.invalid("Woops. The entry ('item', {}) is invalid. The bot tinkerer has been informed. Sorry!".format(api_id))
+        print(data)
+
+    async def skill(self, api_id, extras = None, emojis = []):
+        gw2api = self.bot.get_cog("TybaltGW2API")
+        data = await gw2api.call('{}/{}'.format('skills', api_id))
+        if 'text' in data and data['text'] == 'no such id':
+            return await self.invalid("Woops. The entry ('item', {}) is invalid. The bot tinkerer has been informed. Sorry!".format(api_id))
+        print(data)
+        em = discord.Embed(title='', description=repr(data), colour=0x00FF00)
+        return em
+
 
     async def entityList(self, entities, extracount=0):
         title="Other similar entries"

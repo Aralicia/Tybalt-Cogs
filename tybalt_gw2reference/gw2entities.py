@@ -7,6 +7,10 @@ class EntityType(Enum):
         return {'sql':'item', 'api':'items'}
     def recipe():
         return {'sql':'recipe', 'api':'recipes'}
+    def skin():
+        return {'sql':'skin', 'api':'skins'}
+    def skill():
+        return {'sql':'skill', 'api':'skills'}
 
 class GW2Entities:
 
@@ -32,11 +36,11 @@ class GW2Entities:
         await self.verifyDatabase()
         results = []
         cursor = await self.database.get_cursor()
-        query = ("SELECT SQL_CALC_FOUND_ROWS api_id, name, distance FROM (SELECT api_id, name, damlevlim(%s, name, 254) as `distance` FROM entity WHERE type = %s and removed = 0) t WHERE (distance < 3 OR name LIKE %s) ORDER BY IF(name LIKE %s,1,0) DESC, distance ASC LIMIT %s")
+        query = ("SELECT SQL_CALC_FOUND_ROWS id, api_id, name, distance FROM (SELECT id, api_id, name, damlevlim(%s, name, 254) as `distance` FROM entity WHERE type = %s and removed = 0) t WHERE (distance < 3 OR name LIKE %s) ORDER BY IF(name LIKE %s,1,0) DESC, distance ASC LIMIT %s")
         pattern = '%'+name+'%'
         cursor.execute(query, (name, type['sql'], pattern, pattern, limit))
-        for (api_id, name, distance) in cursor:
-            results.append({'id': api_id, 'name': name, 'distance': distance})
+        for (id, api_id, name, distance) in cursor:
+            results.append({'id': api_id, 'name': name, 'distance': distance, 'innerid':id})
         cursor.execute("SELECT FOUND_ROWS()");
         (total,) = cursor.fetchone();
         return (results, total)
