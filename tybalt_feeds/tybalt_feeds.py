@@ -24,7 +24,7 @@ class TybaltFeeds(commands.Cog):
     def cog_unload(self):
         self.ticker.cancel()
 
-    @tasks.loop(minutes=5.0)
+    @tasks.loop(minutes=1.0)
     async def ticker(self):
         await self.tick()
         return
@@ -103,6 +103,17 @@ class TybaltFeeds(commands.Cog):
                 del feed['channels'][channel_id]
         await self.config.feeds.set(feeds)
         await ctx.message.add_reaction('\U00002705');
+
+    @feeds.command(name="del", pass_context=True)
+    async def feeds_del(self, ctx: commands.Context, uri: str.lower):
+        channel_id = str(ctx.message.channel.id)
+        feed = await self.find_feed("rss", uri, False) #TODO: handle non-rss feeds
+        if channel_id in feed["channels"]:
+            await self.delete_feed(uri)
+            await ctx.message.add_reaction('\U00002705');
+            return
+        await ctx.message.add_reaction('\U0001F1FD');
+
 
     @feeds.command(name="tick", pass_context=False)
     async def feeds_tick(self, ctx: commands.Context):
