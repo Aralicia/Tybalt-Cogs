@@ -1,13 +1,21 @@
 import discord
+from discord import MessageType
 from redbot.core import commands
 from datetime import datetime
 from dateutil import parser
 import urllib.parse
 import aiohttp
 import json
+import random
+import copy
+import re
 
 class TybaltWhen(commands.Cog):
     """TybaltWhen."""
+
+    def __init__(self, bot):
+        super().__init__()
+        self.bot = bot
 
     @commands.command(pass_context=True, no_pm=True)
     async def when(self, ctx, *filters):
@@ -17,7 +25,22 @@ class TybaltWhen(commands.Cog):
         Example:
         !when
         """
+        await self.do_when(ctx.message)
 
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        author = message.author
+        if author.bot == False and message.guild is not None and message.type == MessageType.default:
+            lower = message.content.lower()
+            if re.match('.*(when|next) [^.,!?]*(patch|update)[^.,!?]*\?.*', lower) or re.match('.*(patch|update) [^.,!?]*(when|next)[^.,!?]*\?.*', lower):
+                await self.do_when(message)
+            elif re.match('.*(when|next) [^.,!?]*(guild chat|stream)[^.,!?]*\?', lower) or re.match('(guild chat|stream) [^.,!?]*(when|next)[^.,!?]*\?.*', lower):
+                msg = copy.copy(message)
+                msg.content = "!guildchat"
+                await self.bot.get_cog('CustomCommands').on_message_without_command(msg)
+        pass
+
+    async def do_when(self, message):
         try:
             url = "https://www.thatshaman.com/tools/countdown/?format=json"
             async with aiohttp.ClientSession() as session:
@@ -29,16 +52,29 @@ class TybaltWhen(commands.Cog):
             parsed = json.loads('{}')
 
         if 'when' in parsed and 'confirmed' in parsed:
-            message = ""
+            msg = ""
             when = parsed['when']
             date = parser.parse(when)
 
             # New method (uses discord time codes)
             ts = int(datetime.timestamp(date))
-            if parsed['confirmed']:
-                message = "The next update will be <t:{:d}:R>.".format(ts)
+            joker = random.randrange(0, 10);
+            if random.randrange(1, 20) ==1 :
+                msg = random.choice([
+                    "The next update will be `Soon™️`.",
+                    "The next update `is on the table™️`.",
+                    "The next update will be <t:{:d}:R>, I think.".format(ts + random.randrange(-18000, 18000)),
+                    "The next update will be <t:{:d}:R>, I think.".format(ts + 31536000),
+                    "The last update was <t:{:d}:R>, I believe.".format(0),
+                    "The next update is `coming`, it seems.",
+                    "The next update is  <t:{:d}:R>, maybe. I'm sorry, you didn't specify which update.".format(ts - 31536000),
+                    "The next update is `somewhere in the queue`.",
+                    "I don't know, for which update ? The previous one ?"
+                ])
+            elif parsed['confirmed']:
+                msg = "The next update will be <t:{:d}:R>.".format(ts)
             else:
-                message = "The next update should be <t:{:d}:R>".format(ts)
+                msg = "The next update should be <t:{:d}:R>".format(ts)
 
             # Old method
             # now =  datetime.now()
@@ -63,9 +99,9 @@ class TybaltWhen(commands.Cog):
             #    message = "The next update will be {}".format(message)
             #else:
             #    message = "The next update should be {}".format(message)
-            await ctx.send(message, reference=ctx.message)
+            await message.channel.send(msg, reference=message)
         else:
-            await ctx.send('Sorry, I have no idea.', reference=ctx.message)
+            await message.channel.send('Sorry, I have no idea.', reference=message)
 
 
     @commands.command(pass_context=True, no_pm=True)
