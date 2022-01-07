@@ -4,6 +4,7 @@ from urllib import parse
 import aiohttp
 import json
 import traceback
+from collections import Counter
 
 class TybaltWiki(commands.Cog):
     """TybaltWiki."""
@@ -71,7 +72,7 @@ class TybaltWiki(commands.Cog):
     async def gearsearch(self, ctx, *search):
         """Run the Equipment Query with the given parameters
         Example:
-        !gear ascended viper trinkets
+        !gearsearch ascended viper trinkets
         """
 
         try:
@@ -118,6 +119,47 @@ class TybaltWiki(commands.Cog):
             print(e)
             await ctx.send("Something went wrong.", reference=ctx.message)
 
+    @commands.command(pass_context=True, no_pm=True)
+    async def gallery(self, ctx, *search):
+        """Search the wiki galleries associated to the given parameters
+        Example:
+        !gallery human heavy armor
+        """
+
+        try:
+            await ctx.trigger_typing()
+            keywords = list(search)
+            
+            # special plural cases
+            if 'focus' in keywords:
+                keywords.append("foci");
+            if 'staff' in keywords:
+                keywords.append("staves");
+
+            item_results = await self.query_wiki_category('Category:Item_galleries_by_type', keywords)
+            armor_results = await self.query_wiki_category('Category:Armor', keywords)
+            results = item_results + armor_results
+            max_weight = max([sublist[0] for sublist in results])
+            results = [entry for entry in results if entry[0] == max_weight];
+
+            if results:
+                if len(results) == 1:
+                    await ctx.send("{} : <{}>".format(results[0][1], results[0][2]),  reference=ctx.message)
+                elif len(results) < 11:
+                    res = "Ok, I have found these galleries for \"{}\":".format(" ".join(search))
+                    for i, row in enumerate(results):
+                        res = "{}\n{} : <{}>".format(res, row[1], row[2])
+                    await ctx.send("{}".format(res),  reference=ctx.message)
+                else:
+                    await ctx.send("I found too many results for \"{}\". Be more precise, please.".format(" ".join(search)), reference=ctx.message)
+            else:
+                await ctx.send("Hmm, no gallery was found for \"{}\".".format(" ".join(search)), reference=ctx.message)
+
+        except Exception as e:
+            print(e)
+            await ctx.send("Something went wrong.", reference=ctx.message)
+
+
 
     async def query_wiki(self, keyword):
         try:
@@ -140,6 +182,36 @@ class TybaltWiki(commands.Cog):
             for i, title in enumerate(parsed[1]):
                 results.append([title, parsed[3][i]])
 
+        return results
+
+    async def query_wiki_category(self, category, keywords):
+        try:
+            if not category:
+                return []
+            f = { 'cmtitle' : category }
+            url = "https://wiki.guildwars2.com/api.php?action=query&list=categorymembers&cmprop=ids|title|type&cmlimit=100&format=json&"+parse.urlencode(f)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as r:
+                    data = await r.text()
+                    status = r.status
+            
+            parsed = json.loads(data)
+        except:
+            parsed = json.loads('{}')
+
+        results = []
+        if 'query' in parsed and 'categorymembers' in parsed['query'] and len(parsed['query']['categorymembers']) > 0:
+            for i, entry in enumerate(parsed['query']['categorymembers']):
+                if entry['type'] == 'page':
+                    title_parts = entry['title'].lower().split(' ')
+                    matches = 0
+                    for word in keywords:
+                        for part in title_parts:
+                            if part.startswith(word.lower()):
+                                matches+=1
+                                break;
+                    if matches > 0:
+                        results.append([matches, entry['title'], url])
         return results
 
     def guess_rarity(self, keywords):
