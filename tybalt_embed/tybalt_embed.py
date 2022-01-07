@@ -99,7 +99,7 @@ class TybaltEmbed(commands.Cog):
                     embedData = parsed['embed']
                     title = None
                     description = None
-                    url = None
+                    url = discord.Embed.Empty
                     color = 0x000000
                     timestamp = discord.Embed.Empty
 

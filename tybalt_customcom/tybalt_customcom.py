@@ -851,6 +851,7 @@ class CustomCommands(commands.Cog):
             if cooldowns:
                 self.test_cooldowns(ctx, ctx.invoked_with, cooldowns)
         except CCError:
+            print("error")
             return
 
         if aliasedFrom is not None and aliasedTo is not None:
@@ -888,7 +889,6 @@ class CustomCommands(commands.Cog):
                 index = int(result[1]) - low
                 arg = self.transform_arg(result[0], result[2], cc_args[index])
                 raw_response = raw_response.replace("{" + result[0] + "}", arg)
-        print(raw_response)
         await ctx.send(raw_response, embed=embed, reference=ctx.message)
 
     @staticmethod
@@ -1082,7 +1082,7 @@ class CustomCommands(commands.Cog):
             embedData = parsed['embed']
             title = None
             description = None
-            url = None
+            url = discord.Embed.Empty
             color = 0x000000
             timestamp = discord.Embed.Empty
 
