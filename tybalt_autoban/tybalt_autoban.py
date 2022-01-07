@@ -51,13 +51,10 @@ class TybaltAutoban(commands.Cog):
 
     @commands.command(pass_context=True, no_pm=True)
     @checks.has_permissions(ban_members=True)
-    async def autoban_fix(self, ctx, *match):
-        old_matches = await self.config.guild(ctx.guild).ban_like()
-        new_matches = []
-        for match in old_matches:
-            new_matches.append(match.lower())
-        #await self.config.guild(ctx.guild).ban_like.set(new_matches)
-        
+    async def autoban_list(self, ctx, *match):
+        matches = await self.config.guild(ctx.guild).ban_like()
+        msg = "\n".join(matches)
+        await ctx.message.channel.send("List of autoban filters : \n{}".format(msg))
 
 
     @commands.Cog.listener()
