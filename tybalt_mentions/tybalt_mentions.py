@@ -16,7 +16,7 @@ class TybaltMentions(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if len(message.mentions) == 1 and message.mentions[0].id == self.bot.user.id :
+        if len(message.mentions) == 1 and message.mentions[0].id == self.bot.user.id and message.author.bot is False:
             quotes = await self.config.quotes()
             quote = random.choice(quotes)
             await message.channel.send(quote, reference=message)
