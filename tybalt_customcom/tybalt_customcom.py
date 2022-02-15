@@ -603,8 +603,14 @@ class CustomCommands(commands.Cog):
 
         content = "\n".join(results)
         pages = list(pagify(content, page_length=1920))
-        for page in pages:
-            await ctx.author.send(box(page))
+        try:
+            for page in pages: 
+                await ctx.author.send(box(page))
+        except discord.HTTPException as err:
+            if err.status == 403:
+                ctx.send("I tried to send you the list, but it seems that I'm not allowed to send you DMs")
+            else:
+                raise
 	
     @customcom.command(name="show")
     async def cc_show(self, ctx, command_name: str):
