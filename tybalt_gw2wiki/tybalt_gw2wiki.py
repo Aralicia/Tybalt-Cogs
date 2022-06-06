@@ -5,11 +5,71 @@ import aiohttp
 import json
 import traceback
 from collections import Counter
+import asyncio
+
+class WikiSession:
+    def __init__(self):
+        self.session = None
+        self.base_url = "https://wiki.guildwars2.com/"
+    
+    async def login(self):
+        if self.session is None:
+            return await self.prepare_session()
+        else:
+            pass #no login necessary. yet.
+
+    async def opensearch(self, search, limit=11):
+        return await self.api('opensearch', parameters = {
+            "limit" : limit,
+            "redirects" : "resolve",
+            "search" : search
+        })
+
+    async def api(self, action, parameters={}):
+        parameters["action"] = action;
+        parameters["format"] = "json";
+        data = await self.raw('api.php?'+parse.urlencode(parameters))
+        parsed = json.loads(data)
+        return parsed
+
+    async def raw(self, query):
+        await self.prepare_session()
+        url = self.base_url + query
+        try:
+            r = await self.session.get(url)
+            if (r.status >= 300):
+                print('http error : {}'.format(r.status))
+                print(await r.text())
+                data = "[]"
+            else:
+                data = await r.text()
+        except Exception as e:
+            print(e)
+            data = "[]"
+        return data
+
+    async def prepare_session(self):
+        if self.session is None:
+            headers = {
+                "User-Agent":"TybaltBot/v2",
+                #"User-Agent":"Mozilla/5.0 (Windows NT 6.2; WOW64; rv:17.0) Gecko/20100101 Firefox/17.0",
+            }
+            self.session = aiohttp.ClientSession(headers=headers)
+            await self.login()
+
+    def unload(self):
+        if self.session is not None:
+            asyncio.create_task(self.session.close())
+
 
 class TybaltWiki(commands.Cog):
     """TybaltWiki."""
     def __init__(self, bot):
         self.bot = bot
+        self.wiki = WikiSession()
+
+    def cog_unload(self):
+        self.wiki.unload()
 
     @commands.command(pass_context=True, no_pm=True)
     async def wiki(self, ctx, *search):
@@ -34,7 +94,7 @@ class TybaltWiki(commands.Cog):
                         if i >= 9: #prevents it to show more than 10 results
                             break
                     if len(results) > 10:#if it found more than 10 results, show a notice plus a link to the full search page
-                        link = "http://wiki.guildwars2.com/index.php?title=Special%3ASearch&fulltext=1&"+parse.urlencode({'search' : msg}) #the "fulltext" param is to avoid a redirect in case there is a page matching exactly the search terms
+                        link = "https://wiki.guildwars2.com/index.php?title=Special%3ASearch&fulltext=1&"+parse.urlencode({'search' : msg}) #the "fulltext" param is to avoid a redirect in case there is a page matching exactly the search terms
                         res = "{}\n\nMore than 10 results were found and these are just the first 10.\nTry to narrow your search terms to be more specific or check the full results at <{}>.".format(res,link)
                     await ctx.send("{}".format(res),  reference=ctx.message)
             else:
@@ -126,6 +186,11 @@ class TybaltWiki(commands.Cog):
         !gallery human heavy armor
         """
 
+        #msg = " ".join(search)
+        #link = "https://wiki.guildwars2.com/index.php?title=Special%3ASearch&fulltext=1&"+parse.urlencode({'search' : msg})
+        #await ctx.send("Due to changes in the Guild Wars 2 Wiki, this command is temporarily unavailable.\r\nYou can find a list of galleries here : <https://wiki.guildwars2.com/wiki/Category:Item_galleries_by_type>", reference=ctx.message)
+        #return None
+
         try:
             await ctx.trigger_typing()
             keywords = list(search)
@@ -162,21 +227,10 @@ class TybaltWiki(commands.Cog):
 
 
     async def query_wiki(self, keyword):
-        try:
-            if not keyword:
-                return [ ('Wiki', 'https://wiki.guildwars2.com/') ]
+        if not keyword:
+            return [ ('Wiki', 'https://wiki.guildwars2.com/') ]
 
-            f = { 'search' : keyword }
-            url = "https://wiki.guildwars2.com/api.php?action=opensearch&limit=11&redirects=resolve&format=json&"+parse.urlencode(f)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as r:
-                    data = await r.text()
-                    status = r.status
-            
-            parsed = json.loads(data)
-        except:
-            parsed = json.loads('{}')
-        
+        parsed = await self.wiki.opensearch(keyword)
         results = []
         if len(parsed) > 0 and len(parsed[1]) > 0:
             for i, title in enumerate(parsed[1]):
@@ -185,19 +239,15 @@ class TybaltWiki(commands.Cog):
         return results
 
     async def query_wiki_category(self, category, keywords):
-        try:
-            if not category:
-                return []
-            f = { 'cmtitle' : category }
-            url = "https://wiki.guildwars2.com/api.php?action=query&list=categorymembers&cmprop=ids|title|type&cmlimit=100&format=json&"+parse.urlencode(f)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as r:
-                    data = await r.text()
-                    status = r.status
-            
-            parsed = json.loads(data)
-        except:
-            parsed = json.loads('{}')
+        if not category:
+            return []
+
+        parsed = await self.wiki.api('query', parameters = {
+            "list" : "categorymembers",
+            "cmprop" : "ids|title|type",
+            "cmlimit" : "100",
+            "cmtitle" : category,
+        })
 
         results = []
         if 'query' in parsed and 'categorymembers' in parsed['query'] and len(parsed['query']['categorymembers']) > 0:
@@ -211,7 +261,7 @@ class TybaltWiki(commands.Cog):
                                 matches+=1
                                 break;
                     if matches > 0:
-                        results.append([matches, entry['title'], url])
+                        results.append([matches, entry['title'], 'https://wiki.guildwars2.com/wiki/{}'.format(entry['title'].replace(' ','_'))])
         return results
 
     def guess_rarity(self, keywords):
@@ -279,7 +329,7 @@ class TybaltWiki(commands.Cog):
     def guess_prefix(self, keywords):
         prefixes = {
                 "berserker and valkyrie" : "berserker and valkyrie","dire and rabid" : "dire and rabid","rabid and apothecary" : "rabid and apothecary",
-                "apothecary" : "apothecary","apostate" : "apostate","assassin" : "assassin","berserker" : "berserker","bringer" : "bringer","captain" : "captain","carrion" : "carrion","cavalier" : "cavalier","celestial" : "celestial","cleric" : "cleric","commander" : "commander","crusader" : "crusader","dire" : "dire","diviner" : "diviner","forsaken" : "forsaken","giver" : "giver","grieving" : "grieving","harrier" : "harrier","knight" : "knight","magi" : "magi","marauder" : "marauder","marshal" : "marshal","minstrel" : "minstrel","nomad" : "nomad","plaguedoctor" : "plaguedoctor","rabid" : "rabid","rampager" : "rampager","sentinel" : "sentinel","seraph" : "seraph","settler" : "settler","shaman" : "shaman","sinister" : "sinister","soldier" : "soldier","trailblazer" : "trailblazer","valkyrie" : "valkyrie","vigilant" : "vigilant","viper" : "viper","wanderer" : "wanderer","zealot" : "zealot",
+                "apothecary" : "apothecary","apostate" : "apostate","assassin" : "assassin","berserker" : "berserker","bringer" : "bringer","captain" : "captain","carrion" : "carrion","cavalier" : "cavalier","celestial" : "celestial","cleric" : "cleric","commander" : "commander","crusader" : "crusader","dire" : "dire","diviner" : "diviner","dragon" : "dragon","forsaken" : "forsaken","giver" : "giver","grieving" : "grieving","harrier" : "harrier","knight" : "knight","magi" : "magi","marauder" : "marauder","marshal" : "marshal","minstrel" : "minstrel","nomad" : "nomad","plaguedoctor" : "plaguedoctor","rabid" : "rabid","ritualist" : "ritualist","rampager" : "rampager","sentinel" : "sentinel","seraph" : "seraph","settler" : "settler","shaman" : "shaman","sinister" : "sinister","soldier" : "soldier","trailblazer" : "trailblazer","valkyrie" : "valkyrie","vigilant" : "vigilant","viper" : "viper","wanderer" : "wanderer","zealot" : "zealot",
                 "healing" : "healing","malign" : "malign","mighty" : "mighty","precise" : "precise","resilient" : "resilient","vital" : "vital","deserter" : "deserter","hearty" : "hearty","honed" : "honed","hunter" : "hunter","lingering" : "lingering","penetrating" : "penetrating","potent" : "potent","ravaging" : "ravaging","rejuvenating" : "rejuvenating","stout" : "stout","strong" : "strong","survivor" : "survivor","vagabond" : "vagabond","vigorous" : "vigorous",
                 "selectable" : "selectable",
 
@@ -289,3 +339,4 @@ class TybaltWiki(commands.Cog):
             if key in keywords:
                 return prefixes[key]
         return None
+
