@@ -294,8 +294,8 @@ class TybaltWiki(commands.Cog):
     def guess_armor_type(self, keywords):
         ret = {}
         types = {
-                "aquatic helm" : "Aquatic helm", "helm" : "Helm", "shoulders" : "Shoulders", "coat" : "Coat", "gloves" : "Gloves", "leggings" : "Leggings", "boots" : "Boots",
-                "breather" : "Aquatic helm", "head" : "Helm", "hat" : "Helm", "shoulder" : "Shoulders", "chest" : "Coat", "glove" : "Gloves", "hand" : "Gloves", "boot" : "Boots", "legs" : "Leggings",
+                "aquatic helm" : "Aquatic Headgear", "aquatic headgear": "Aquatic Headgear", "helm" : "Headgear", "shoulders" : "Shoulders", "coat" : "Chest", "gloves" : "Gloves", "leggings" : "Leggings", "boots" : "Boots",
+                "breather" : "Aquatic Headgear", "head" : "Headgear", "hat" : "Headgear", "Headgear": "Headgear", "shoulder" : "Shoulders", "chest" : "Chest", "glove" : "Gloves", "hand" : "Gloves", "boot" : "Boots", "legs" : "Leggings",
                 }
         classes = {"light" : "Light", "medium" : "Medium", "heavy" : "Heavy"}
         for key in classes:
@@ -328,12 +328,12 @@ class TybaltWiki(commands.Cog):
     
     def guess_prefix(self, keywords):
         prefixes = {
-                "berserker and valkyrie" : "berserker and valkyrie","dire and rabid" : "dire and rabid","rabid and apothecary" : "rabid and apothecary",
-                "apothecary" : "apothecary","apostate" : "apostate","assassin" : "assassin","berserker" : "berserker","bringer" : "bringer","captain" : "captain","carrion" : "carrion","cavalier" : "cavalier","celestial" : "celestial","cleric" : "cleric","commander" : "commander","crusader" : "crusader","dire" : "dire","diviner" : "diviner","dragon" : "dragon","forsaken" : "forsaken","giver" : "giver","grieving" : "grieving","harrier" : "harrier","knight" : "knight","magi" : "magi","marauder" : "marauder","marshal" : "marshal","minstrel" : "minstrel","nomad" : "nomad","plaguedoctor" : "plaguedoctor","rabid" : "rabid","ritualist" : "ritualist","rampager" : "rampager","sentinel" : "sentinel","seraph" : "seraph","settler" : "settler","shaman" : "shaman","sinister" : "sinister","soldier" : "soldier","trailblazer" : "trailblazer","valkyrie" : "valkyrie","vigilant" : "vigilant","viper" : "viper","wanderer" : "wanderer","zealot" : "zealot",
-                "healing" : "healing","malign" : "malign","mighty" : "mighty","precise" : "precise","resilient" : "resilient","vital" : "vital","deserter" : "deserter","hearty" : "hearty","honed" : "honed","hunter" : "hunter","lingering" : "lingering","penetrating" : "penetrating","potent" : "potent","ravaging" : "ravaging","rejuvenating" : "rejuvenating","stout" : "stout","strong" : "strong","survivor" : "survivor","vagabond" : "vagabond","vigorous" : "vigorous",
-                "selectable" : "selectable",
+                "berserker and valkyrie" : "Berserker and Valkyrie","dire and rabid" : "Dire and Rabid","rabid and apothecary" : "Rabid and Apothecary",
+                "apothecary" : "Apothecary","apostate" : "Apostate","assassin" : "Assassin","berserker" : "Berserker","bringer" : "Bringer","captain" : "Captain","carrion" : "Carrion","cavalier" : "Cavalier","celestial" : "Celestial","cleric" : "Cleric","commander" : "Commander","crusader" : "Crusader","dire" : "Dire","diviner" : "Diviner","dragon" : "Dragon","Forsaken" : "forsaken","giver" : "Giver","grieving" : "Grieving","harrier" : "Harrier","knight" : "Knight","magi" : "Magi","marauder" : "Marauder","marshal" : "Marshal","minstrel" : "Minstrel","nomad" : "Nomad","plaguedoctor" : "Plaguedoctor","rabid" : "Rabid","ritualist" : "Ritualist","rampager" : "Rampager","sentinel" : "Sentinel","seraph" : "Seraph","settler" : "Settler","shaman" : "Shaman","sinister" : "Sinister","soldier" : "Soldier","trailblazer" : "Trailblazer","valkyrie" : "Valkyrie","vigilant" : "Vigilant","viper" : "Viper","wanderer" : "Wanderer","zealot" : "Zealot",
+                "healing" : "Healing","malign" : "Malign","mighty" : "Mighty","precise" : "Precise","resilient" : "Resilient","vital" : "Vital","deserter" : "Deserter","hearty" : "Hearty","honed" : "Honed","hunter" : "Hunter","lingering" : "Lingering","penetrating" : "Penetrating","potent" : "Potent","ravaging" : "Ravaging","rejuvenating" : "Rejuvenating","stout" : "Stout","strong" : "Strong","survivor" : "Survivor","vagabond" : "Vagabond","vigorous" : "Vigorous",
+                "selectable" : "Selectable",
 
-                "zerker" : "berserker", "valk" : "valkyrie"
+                "zerker" : "Berserker", "valk" : "Valkyrie", "cele": "Celestial"
                 }
         for key in prefixes:
             if key in keywords:

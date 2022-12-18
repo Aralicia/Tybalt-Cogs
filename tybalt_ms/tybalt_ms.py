@@ -55,6 +55,18 @@ class TybaltMegaserver(commands.Cog):
         for role in self.roles:
             await message.add_reaction(role['emoji'])
     
+    @commands.command(pass_context=True, no_pm=True)
+    @checks.has_permissions(manage_messages=True)
+    async def roles_clean(self, ctx, *item):
+        """
+
+        """
+        id = " ".join(item).lower()
+        msg = await ctx.fetch_message(id);
+        await msg.clear_reactions();
+        for role in self.roles:
+            await msg.add_reaction(role['emoji'])
+
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload):
         message, member, role = await self.get_reaction_context(payload)
@@ -70,13 +82,12 @@ class TybaltMegaserver(commands.Cog):
                 await member.kick(reason="Identifies as a bot")
             else:
                 if role not in member.roles:
-                    #print("Adding {} to {}".format(role.name, member.name))
                     try:
                         await member.add_roles(role)
                     except:
+                        print("add roles failed")
                         pass
                 else:
-                    #print("Removing {} to {}".format(role.name, member.name))
                     try:
                         await member.remove_roles(role)
                     except:
@@ -86,7 +97,7 @@ class TybaltMegaserver(commands.Cog):
 
     #@commands.Cog.listener()
     #async def on_raw_reaction_remove(self, payload):
-    #    member, role = await self.get_reaction_context(payload)
+    #    message, member, role = await self.get_reaction_context(payload)
     #    if member is not None and role is not None:
     #        if role in member.roles:
     #            await member.remove_roles(role)
